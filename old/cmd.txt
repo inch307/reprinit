@@ -1,0 +1,27 @@
+ssh inchol@163.152.71.172
+cd python/fixcnn
+source activate
+cd ../temporal_name
+
+
+python run.py --fan_in 
+python run.py --fan_in --repr_initialization --beta 2 --gpu_idx 1
+python run.py --fan_in --dataset stl10 --gpu_idx 2
+python run.py --fan_in --dataset stl10 --repr_initialization --gpu_idx 3
+
+python run.py --fan_in --dataset stl10 --gpu_idx 2
+python run.py --fan_in --dataset stl10 --repr_initialization --beta 2 --gpu_idx 3
+
+python run.py --model simclr --n_runs 1 --fan_in --dataset stl10 --gpu_idx 2
+
+
+
+python run.py --model simclr --n_runs 2 --fan_in --epochs 200 --gpu_idx 0
+python run.py --model simclr --n_runs 2 --fan_in --repr_initialization --beta 2 --epochs 200 --gpu_idx 1
+python run.py --model simclr --n_runs 2 --fan_in --epochs 200 --dataset stl10 --gpu_idx 2
+python run.py --model simclr --n_runs 2 --fan_in --repr_initialization --beta 2 --epochs 200 --dataset stl10 --gpu_idx 3
+
+python run.py --n_runs 1 --fan_in --repr_init--epochs 101 --dataset imagenet --gpu_idx 0
+python run.py --n_runs 1 --fan_in --repr_init--epochs 101 --dataset imagenet --gpu_idx 1
+python run.py --n_runs 1 --fan_in --repr_init--epochs 101 --dataset imagenet --gpu_idx 2
+python run.py --n_runs 1 --fan_in --epochs 101 --dataset imagenet --gpu_idx 3

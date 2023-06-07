@@ -5,3 +5,4 @@
 /experiments/__pycache__
 /visualization
 ILSVRC2012_val_00043156.JPEG
+*.pyc

@@ -3,8 +3,8 @@ import torch, torchvision
 import torch.nn as nn
 import numpy as np
 import os, pickle, random, math, datetime
-from dataset.dataset import Dataset
-from ..models import resnet_cifar, resnet_imagenet
+from dataset import Dataset
+from models import resnet_cifar, resnet_imagenet
 
 def mkdir(path):
     isExist = os.path.exists(path)
@@ -15,38 +15,40 @@ def mkdir(path):
         return
 
 def chk_experiment_name(path):
-    isExist = os.path.exists(path)
-    if isExist:
-        i = 1
-        while(1):
-            isExist = os.path.exists(path+'_'+str(i))
-            if isExist:
-                i += 1
-            else:
-                return path+'_'+str(i)+'/'
-    else:
-        return path+'/'
+    i = 0
+    while(1):
+        isExist = os.path.exists(path+'_'+str(i)+'.log')
+        if isExist:
+            i += 1
+        else:
+            return i
 
 def logger_init(args):
-    if args.experiment != '':
-        cur_time = str(datetime.datetime.now())[0:16].replace('-','_').replace(' ','_')
-        mkdir('./log/')
-        log_path = chk_experiment_name('./log/'+args.experiment)
-        mkdir(log_path)
-        with open(log_path+'experiment_info.txt', 'w') as f:
-            f.write('experiment date: '+cur_time+'\n\nargs:\n')
-            for arg in vars(args):
-                f.write(arg+': '+getattr(args, arg)+'\n')
-            f.close()
-        return log_path
+    mkdir('log')
+    mkdir('checkpoints')
+    log = {'args': args}
+    log['train_acc1'] = []
+    log['train_acc5'] = []
+    log['val_acc1'] = []
+    log['val_acc5'] = []
+    log['test_acc1'] = []
+    log['test_acc5'] = []
+
+    if args.weight_path:
+        wp = args.weight_path[0:-4]
+        log_path = 'log/' + 'R_' + wp + '.log'
     else:
-        return ''
+        log_path = 'log/' + args.model + '_' + args.dataset
+        i = chk_experiment_name(log_path)
+        log_path = log_path + '_' + str(i) + '.log'
+
+    return log, log_path
 
 
 def get_dataset(args):
     data_path = get_cur_path() + '/data' + '/' + args.dataset
     if args.dataset == 'imagenet' or 'smallimagenet':
-        data_path='../sdb1/ImageNet'
+        data_path='../../sdb1/ImageNet'
     dataset = Dataset(args=args, data_path=data_path)
     return dataset.get_dataset()
 
@@ -67,9 +69,9 @@ def get_data_loader(train_dataset, val_dataset, test_dataset, args):
         )
         return train_loader, val_loader, test_loader
 
-    return train_loader, val_loader
+    return train_loader, val_loader, None
 
-def get_model(args, n_run):
+def get_model(args):
     if args.dataset == 'cifar10' or args.dataset == 'cifar100':
         if args.model == 'resnet20':
             model = resnet_cifar.resnet20(use_bn = args.use_bn)
@@ -106,7 +108,9 @@ def get_model(args, n_run):
     else:
         raise NotImplementedError('Not implemented dataset')
     
-    torch.load(model)
+    if args.weight_path is not None:
+        w_path = '../weights/'+args.weight_path
+        model.load_state_dict(torch.load(w_path))
 
     return model
 
@@ -118,3 +122,6 @@ def get_device(args):
 
 def get_cur_path():
     return os.getcwd()
+
+if __name__ == '__main__':
+    print('utils')

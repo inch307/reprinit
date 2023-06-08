@@ -9,13 +9,13 @@ from reprinit import ReprInit
 
 # run.py initializes weights and save the weights as a file.
 #  use_bn test 
-# python .\run.py --use_bn --dataset imagenet --model resnet18
-# python .\run.py --use_bn --dataset imagenet --model resnet50
-# python .\run.py --dataset imagenet --model resnet18
-# python .\run.py --dataset imagenet --model resnet50
+# python run.py --use_bn --dataset imagenet --model resnet18 --firstconv
+# python run.py --use_bn --dataset imagenet --model resnet50
+# python run.py --dataset imagenet --model resnet18
+# python run.py --dataset imagenet --model resnet50
 
-# python .\run.py --dataset cifar10 --model resnet20
-# python .\run.py --use_bn --dataset cifar10 --model resnet20
+# python run.py --dataset cifar10 --model resnet20
+# python run.py --use_bn --dataset cifar10 --model resnet20
 
 def chk_id_num(path, args):
     id_num = 0
@@ -37,15 +37,16 @@ parser.add_argument('--use_bn', help='use batch normalization', action='store_tr
 # TODO: min max: beta, num_line, impact
 # parser.add_argument('--fan_in', default=False, action='store_true', help='config for init (fan_in and fan_out). default is fan_out.')
 # parser.add_argument('--beta', default=np.sqrt(2), help='hyperparameter beta')
-parser.add_argument('--num_line', default=3, type=int, help='the number of lines to draw')
-parser.add_argument('--impact', default=0.95, type=float, help='impact factor in Reprinit')
+parser.add_argument('--min_line', default=2, type=int, help='the number of lines to draw')
+parser.add_argument('--max_line', default=5, type=int, help='the number of lines to draw')
+parser.add_argument('--impact', default=1.0, type=float, help='impact factor in Reprinit')
 parser.add_argument('--seed', default=2023, type=int, help='seed for init')
 parser.add_argument('--init_rate', default=0.7, type=float, help='ratio for reprinit and kaiming init')
 parser.add_argument('--first_conv', action='store_true', default=False)
 parser.add_argument('--first_conv_channel')
 parser.add_argument('--no_zca', action='store_true', default=False)
 # Other configs
-parser.add_argument('-n', default=5, type=int, help='the number of weight files to generate')
+parser.add_argument('-n', default=1, type=int, help='the number of weight files to generate')
 
 args = parser.parse_args()
 

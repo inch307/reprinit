@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import datetime
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-import utils
+# import utils
 
 def topk_accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -69,9 +69,36 @@ def val(val_loader, net, device, log):
     log['val_acc5'].append(acc5)
 
     return acc1, acc5
+
+def test(test_loader, net, device, log):
+    net.eval()
+    criterion = nn.CrossEntropyLoss()
+    test_loss = 0
+    correct1 = 0
+    # correct3 = 0
+    correct5 = 0
+
+    with torch.no_grad():
+        for data, target in tqdm(test_loader):
+            data, target = data.to(device), target.to(device)
+            output = net(data)
+            test_loss += criterion(output, target).item()
+            c1, c5 = topk_correct(output, target, (1, 5))
+            correct1 += c1
+            # correct3 += c3
+            correct5 += c5
+    acc1 = correct1 / len(test_loader.dataset) * 100
+    # acc3 = correct3 / len(val_loader.dataset) * 100
+    acc5 = correct5 / len(test_loader.dataset) * 100
+
+    log['test_acc1'].append(acc1)
+    # log['val_acc3'].append(acc3)
+    log['test_acc5'].append(acc5)
+
+    return acc1, acc5
     
 
-def train(net, train_loader, val_loader, optimizer, scheduler, device, epochs, log):
+def train(net, train_loader, val_loader, test_loader, optimizer, scheduler, warmup_scheduler, device, epochs, log, log_path):
     net.train()
     criterion = nn.CrossEntropyLoss()
     losses = []
@@ -83,6 +110,12 @@ def train(net, train_loader, val_loader, optimizer, scheduler, device, epochs, l
             loss = criterion(output, target)
             loss.backward()
             optimizer.step()
+
+            # if warmup_scheduler is not None:
+            #     with warmup_scheduler.dampening():
+            #         scheduler.step()
+            # if warmup_scheduler is None and scheduler is not None:
+            #     scheduler.step()
             
             losses.append(loss.item())
             
@@ -97,7 +130,7 @@ def train(net, train_loader, val_loader, optimizer, scheduler, device, epochs, l
             #     # self.log['train_acc5'].append(acc5)
             # n_iter += 1
 
-            correct1, correct5 = topk_correct(output, target, (1, 3, 5))
+            correct1, correct5 = topk_correct(output, target, (1, 5))
             acc1 = correct1 / target.size(0) * 100
             # acc3 = correct3 / target.size(0) * 100
             acc5 = correct5 / target.size(0) * 100
@@ -107,3 +140,10 @@ def train(net, train_loader, val_loader, optimizer, scheduler, device, epochs, l
             # print(f'At epoch {epoch} train acc1: {acc1}, acc5: {acc5}')
         val_acc1, val_acc5 = val(val_loader, net, device, log)
         print(f'Validation at epoch {epoch}, acc1: {val_acc1}, acc5: {val_acc5}')
+        if test_loader is not None:
+            test_acc1, test_acc5 = test(test_loader, net, device, log)
+            print(f'Test at epoch {epoch}, acc1: {test_acc1}, acc5: {test_acc5}')
+
+        with open(log_path, 'wb') as f:
+            pickle.dump(log, f)
+        

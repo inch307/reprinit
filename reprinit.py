@@ -18,6 +18,8 @@ class ReprInit:
         self.weight_points = {}
         self.weight_var = {}
         self.zca_dict = {}
+        self.min_line = args.min_line
+        self.max_line = args.max_line
 
     def apply_initialization(self):
         ### init fc and bn layers
@@ -189,18 +191,44 @@ class ReprInit:
 
             # n_in = mat_size[2] * mat_size[3] * mat_size[1]
             n_in, n_out = nn.init._calculate_fan_in_and_fan_out(layer.weight)
+
+
+            # if no zca
+            # if self.args.first_conv:
+            #     min_lin = round(self.min_line * (conv_size[0] / 3))
+            #     max_lin = round(self.max_line * (conv_size[0] / 3))
+            #     for f in range(mat_size[0]):
+            #         # repr_prob_rand = random.uniform(0, 1)
+            #         # if repr_prob >= repr_prob_rand:
+                    
+            #         for i in range(num_lin):
+            #             num_lin = random.randint(min_lin, max_lin)
+            #             theta = random.uniform(0, math.pi)
+            #             m = np.tan(theta)
+            #             a, b = utils.get_ab(R, m)
+            #             sign = random.choice(binary)
+
+            #             distance = torch.abs((m * mat_x - mat_y - m * a + b)) / np.sqrt(m*m+1)
+            #             distance = beta - distance
+            #             distance[distance < 0] = 0
+            #             distance = distance * sign * np.sqrt(impact) * np.sqrt(2/n_out) / np.sqrt(num_lin) / np.sqrt(weight_var[beta])
+
+            #             for c in range(mat_size[1]):
+            #                 mat[f][c] += distance
+
+            #         mat[f] += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[1], mat_size[2], mat_size[3]))
             
             # if first conv layer
             if self.args.first_conv:
                 if idx == 0:
-                    min_lin = 1
-                    max_lin = 2
+                    min_lin = round(self.min_line * (conv_size[0] / 3))
+                    max_lin = round(self.max_line * (conv_size[0] / 3))
                     for f in range(mat_size[0]):
                         # repr_prob_rand = random.uniform(0, 1)
                         # if repr_prob >= repr_prob_rand:
-                        
+                        num_lin = random.randint(min_lin, max_lin)
+                        dist_lst = []
                         for i in range(num_lin):
-                            num_lin = random.randint(min_lin, max_lin)
                             theta = random.uniform(0, math.pi)
                             m = np.tan(theta)
                             a, b = utils.get_ab(R, m)
@@ -209,20 +237,35 @@ class ReprInit:
                             distance = torch.abs((m * mat_x - mat_y - m * a + b)) / np.sqrt(m*m+1)
                             distance = beta - distance
                             distance[distance < 0] = 0
-                            distance = distance * sign * np.sqrt(impact) * np.sqrt(2/n_out) / np.sqrt(num_lin) / np.sqrt(weight_var[beta])
+                            distance = distance * sign
+                            distance = distance.view(-1, 1)
+                            dist_lst.append(distance)
 
-                            for c in range(mat_size[1]):
-                                mat[f][c] += distance
+                            for d in dist_lst[1:]:
+                                dist_lst[0] += d
 
-                        mat[f] += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[1], mat_size[2], mat_size[3]))
+                            if self.args.no_zca:
+                                for c in range(mat_size[1]):
+                                    mat[f][c] = dist_lst[0]
+                                    # TODO: variance to fan_out, first conv
+                            else:
+                                xZCAMatrix = np.sqrt(impact) * np.sqrt(2/n_out) / np.sqrt(num_lin) * torch.mm(ZCAMatrix[beta], dist_lst[0]) 
+                                xZCAMatrix = xZCAMatrix.view(conv_size[0], conv_size[1])
+                                if not impact == 0:
+                                    xZCAMatrix += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[2], mat_size[3]))
+                                
+                                for c in range(mat_size[1]):
+                                    mat[f][c] = xZCAMatrix
+                                
+
                         # else:
                         #     gaussian_noise = torch.normal(0, np.sqrt(2/n_out), size=(mat_size[1], mat_size[2], mat_size[3]))
                         #     mat[f] += gaussian_noise
 
                 # not first conv layer
                 else:
-                    min_lin = 1
-                    max_lin = 2
+                    min_lin = round(self.min_line * (conv_size[0] / 3))
+                    max_lin = round(self.max_line * (conv_size[0] / 3))
                     for f in range(mat_size[0]):
                         # repr_prob_rand = random.uniform(0, 1)
                         # if repr_prob >= repr_prob_rand:
@@ -252,7 +295,8 @@ class ReprInit:
                             else:
                                 xZCAMatrix = np.sqrt(impact) * np.sqrt(2/n_out) / np.sqrt(num_lin) * torch.mm(ZCAMatrix[beta], dist_lst[0]) 
                                 xZCAMatrix = xZCAMatrix.view(conv_size[0], conv_size[1])
-                                xZCAMatrix += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[2], mat_size[3]))
+                                if not impact == 0:
+                                    xZCAMatrix += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[2], mat_size[3]))
 
                                 mat[f][c] = xZCAMatrix
 
@@ -262,8 +306,8 @@ class ReprInit:
 
             # False self.args.first_conv
             else:
-                min_lin = 1
-                max_lin = 2
+                min_lin = round(self.min_line * (conv_size[0] / 3))
+                max_lin = round(self.max_line * (conv_size[0] / 3))
                 for f in range(mat_size[0]):
                     repr_prob_rand = random.uniform(0, 1)
                     # if repr_prob >= repr_prob_rand:
@@ -294,7 +338,8 @@ class ReprInit:
                         else:
                             xZCAMatrix = np.sqrt(impact) * np.sqrt(2/n_out) / np.sqrt(num_lin) * torch.mm(ZCAMatrix[beta], dist_lst[0]) 
                             xZCAMatrix = xZCAMatrix.view(conv_size[0], conv_size[1])
-                            xZCAMatrix += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[2], mat_size[3]))
+                            if not impact == 0:
+                                xZCAMatrix += torch.normal(0, np.sqrt(1-impact) * np.sqrt(2/n_out), size=(mat_size[2], mat_size[3]))
 
                             mat[f][c] = xZCAMatrix
 
